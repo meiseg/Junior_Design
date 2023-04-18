@@ -1,10 +1,6 @@
 # Define the default target
 all: myprogram
 
-
-c: $(c)
-	gcc $(c)
-	./a.out
 # Define the myprogram target
 myprogram: $(file)
 	
