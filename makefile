@@ -9,7 +9,7 @@ c: $(c)
 myprogram: $(file)
 	
 	
-	 g++ $(file) -o main `pkg-config gtkmm-3.0 --cflags --libs` -I/usr/include/gtmm-3.0/
+	 g++ $(file).cpp -o main `pkg-config gtkmm-3.0 opencv4 --cflags --libs` -I/usr/include/gtmm-3.0/ -I/usr/include/opencv4/opencv2
 	./main &
 debug:
 	gdb a.out
