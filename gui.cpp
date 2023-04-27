@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <gtkmm.h>
-#include <webkit2/webkit2.h>
+#include "video.hpp"
 #include <stdio.h>
 #include "portaudio.h"
 #include <aubio/aubio.h>
@@ -16,16 +16,15 @@ using namespace std;
 class Junior {
 public:
 	
-	 PaError err = Pa_Initialize();
+	PaError err;
 	PaStream *stream;
 	// widgets create here
+	video video_widget;
 	static string pitches_s;
     Gtk::Window window;
     Gtk::Box box{Gtk::ORIENTATION_VERTICAL};
     Gtk::Label label;
 	Gtk::MenuButton menuButton;
-	WebKitWebView * one =  WEBKIT_WEB_VIEW( webkit_web_view_new() );
-	Gtk::Widget * three = Glib::wrap( GTK_WIDGET( one ) );
 	Gtk::Menu menu;
 	Gtk::Label label1{"label1"};
 	Gtk::Label label2{"label2"};
@@ -70,7 +69,7 @@ public:
 }
 
     void set_setup(){
-		err = Pa_OpenDefaultStream(&stream,2, 2, paFloat32, SAMPLE_RATE, FRAMES_PER_BUFFER, paRecordCallback, NULL);
+		
 		//set up for windows and title
         
 		window.set_default_size(1920, 1000);
@@ -82,7 +81,7 @@ public:
 		button1.set_size_request(250, 500);
         button2.set_size_request(250, 500);
         button3.set_size_request(50, 50); 
-		three->set_size_request(800, 800);
+		//three->set_size_request(800, 800);
 		button1.override_font(Pango::FontDescription("Arial 50"));
 		button2.override_font(Pango::FontDescription("Arial 50"));
         label.override_font(Pango::FontDescription("Arial 100"));
@@ -104,7 +103,7 @@ public:
 		menuButton.set_direction(Gtk::ARROW_DOWN);
 		// adding items to containter
 		box.pack_start(menuButton, Gtk::PACK_SHRINK);
-		box.pack_start(*three, Gtk::PACK_SHRINK);
+		box.pack_start(video_widget, Gtk::PACK_SHRINK);
 		
         box.pack_start(button1, Gtk::PACK_SHRINK);
         box.pack_start(button2, Gtk::PACK_SHRINK);
@@ -118,60 +117,52 @@ public:
         button1.show();
         button2.show();
         button3.hide();
-		three->hide();
+		video_widget.hide();
         label.hide();
-		//menuButton.hide();
+	
 }
 
 
 
     void live_feed() {
-		
+		err = Pa_Initialize();
+		err = Pa_OpenDefaultStream(&stream,2, 0, paFloat32, SAMPLE_RATE, FRAMES_PER_BUFFER, paRecordCallback, NULL);
 		Glib::signal_timeout().connect([&]() {
 		if (button3.get_visible()) {
 		if (state == 5) {label.show();
+		
+		
 		err= Pa_StartStream(stream);
 		label.set_text(pitches_s);
 		}else label.hide();
-		
+		err= Pa_StartStream(stream);
 		
 		}
-		else{
-		err = Pa_StopStream(stream);
-		err = Pa_CloseStream(stream);
-		
-		
-		} 
+
+		 
 		return true;
 		}, 100);
 }
 void clicked_menubutton(){
 	item1.signal_activate().connect([&](){
-	WebKitSettings *settings = webkit_settings_new();
-   //g_object_set(settings, "enable-mediasource", TRUE, "enable-video", TRUE, "enable-webaudio", TRUE, NULL);
-    webkit_web_view_set_settings(WEBKIT_WEB_VIEW(one), settings);
-	webkit_web_view_load_uri(one, "https://open.spotify.com/lyrics");
-		three->show();
+
 });
 	item2.signal_activate().connect([&](){
-	WebKitSettings *settings = webkit_settings_new();
-    webkit_web_view_set_settings(WEBKIT_WEB_VIEW(one), settings);
-	webkit_web_view_load_uri(one, "https://www.youtube.com/watch?v=qQzdAsjWGPg");
-	three->show();
+
 });
 }
     void clicked_button3() {
         hide();
         button3.show();
 		
-		if(state == 1) {menuButton.show();clicked_menubutton();} else{menuButton.hide();three->hide();}
+		if(state == 1) {menuButton.show();clicked_menubutton();} else{menuButton.hide();}
         button3.signal_clicked().connect([&]() {
 		button1.show();
 		button2.show();
 		button3.hide();
 		label.hide();
 		menuButton.hide();
-		three->hide();
+	
 		
 		err = Pa_StopStream(stream);
 		err = Pa_CloseStream(stream);
@@ -191,20 +182,14 @@ string Junior::pitches_s;
 	runt.set_setup();
 runt.button2.signal_clicked().connect([&](){
 	runt.set_state(5);
-	
 	runt.err = Pa_StartStream(runt.stream);
 	runt.live_feed();
-
 	runt.clicked_button3();
 });
 
 runt.button1.signal_clicked().connect([&](){
 	runt.set_state(1);
-	
-	runt.live_feed();	
-
 	runt.clicked_button3();
-	
 });
 
 	runt.initial_display();
