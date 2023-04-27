@@ -7,10 +7,10 @@
 #include <aubio/aubio.h>
 #include <string>
 #include <cmath>
-#define SAMPLE_RATE (8000)
+#define SAMPLE_RATE (44100)
 #define FRAMES_PER_BUFFER (1024)
 #define hop (256)
-#define PITCH_THRESHOLD 0.68
+#define PITCH_THRESHOLD (0.68)
 using namespace std;
 
 class Junior {
@@ -50,9 +50,14 @@ public:
     aubio_pitch_do(pitch_detector,input_fvec,pitch);
     //printf("Detected pitch: %f Hz\n", pitch->data[0]);
 	int midi = 12 * log2(pitch->data[0]/440) + 69;
-	
-	Junior::pitches_s = std::to_string(midi);
-	
+	if(midi >= 0 && midi <=127){
+	const char* noteNames[] = { "C", "C #", "D", "D #", "E", "F", "F #", "G", "G #", "A", "A#", "B" };
+    int octave = (midi / 12) - 1;
+    int noteIndex = midi % 12;
+    string noteName = noteNames[noteIndex];
+    noteName += std::to_string(octave);
+	Junior::pitches_s = noteName;
+	}
 	del_aubio_pitch(pitch_detector);
     del_fvec(pitch);
 	return paContinue;
@@ -80,7 +85,7 @@ public:
 		three->set_size_request(800, 800);
 		button1.override_font(Pango::FontDescription("Arial 50"));
 		button2.override_font(Pango::FontDescription("Arial 50"));
-        label.override_font(Pango::FontDescription("Arial 50"));
+        label.override_font(Pango::FontDescription("Arial 100"));
         button3.set_valign(Gtk::ALIGN_END);
         button3.set_halign(Gtk::ALIGN_START);
 		
@@ -125,7 +130,7 @@ public:
 		Glib::signal_timeout().connect([&]() {
 		if (button3.get_visible()) {
 		if (state == 5) {label.show();
-		err = Pa_StartStream(stream);
+		err= Pa_StartStream(stream);
 		label.set_text(pitches_s);
 		}else label.hide();
 		
@@ -134,7 +139,8 @@ public:
 		else{
 		err = Pa_StopStream(stream);
 		err = Pa_CloseStream(stream);
-		err = Pa_Terminate();
+		
+		
 		} 
 		return true;
 		}, 100);
@@ -185,6 +191,8 @@ string Junior::pitches_s;
 	runt.set_setup();
 runt.button2.signal_clicked().connect([&](){
 	runt.set_state(5);
+	
+	runt.err = Pa_StartStream(runt.stream);
 	runt.live_feed();
 
 	runt.clicked_button3();
@@ -192,6 +200,7 @@ runt.button2.signal_clicked().connect([&](){
 
 runt.button1.signal_clicked().connect([&](){
 	runt.set_state(1);
+	
 	runt.live_feed();	
 
 	runt.clicked_button3();
