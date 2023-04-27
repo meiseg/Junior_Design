@@ -1,21 +1,28 @@
-#include <gtk/gtk.h>
+#include <gtkmm.h>
 #include <webkit2/webkit2.h>
 
-int main(int argc, char* argv[]) {
-  // Initialize GTK
-  gtk_init(&argc, &argv);
+int main( int argc
+        , char **argv
+        )
+{
+  Glib::RefPtr<Gtk::Application> app = Gtk::Application::create( argc, argv, "" );
 
-  // Create the WebView
-  GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-  WebKitWebView* webview = WEBKIT_WEB_VIEW(webkit_web_view_new());
-  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(webview));
-  gtk_widget_show_all(window);
+  Gtk::Window window;
+  window.set_default_size( 800, 600 );
 
-  // Load a web page
-  webkit_web_view_load_uri(webview, "https://www.youtube.com/watch?v=MqazV4hbu8E");
+  WebKitWebView * one =  WEBKIT_WEB_VIEW( webkit_web_view_new() );
+  /*
+   * the next line does some tricks :
+   * GTK_WIDGET( one ) -> convert WebKitWebView to GtkWidget (one->two)
+   * Glib::wrap( GTK_WIDGET( one ) ) -> convert GtkWidget to Gtk::Widget (two->three)
+   */
+  Gtk::Widget * three = Glib::wrap( GTK_WIDGET( one ) );
 
-  // Start the main GTK loop
-  gtk_main();
+  window.add( *three );
+  webkit_web_view_load_uri(one, "http://stackoverflow.com/questions/17039942/example-of-using-webkitgtk-with-gtkmm-3-0");
 
-  return 0;
+  window.show_all();
+
+  app->run( window );  
+  exit( 0 );
 }
