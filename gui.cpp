@@ -2,12 +2,24 @@
 #include <fstream>
 #include <gtkmm.h>
 #include <webkit2/webkit2.h>
-//#include<cstream>
+#include <stdio.h>
+#include "portaudio.h"
+#include <aubio/aubio.h>
+#include <string>
+#include <cmath>
+#define SAMPLE_RATE (8000)
+#define FRAMES_PER_BUFFER (1024)
+#define hop (256)
+#define PITCH_THRESHOLD 0.68
 using namespace std;
 
 class Junior {
 public:
+	
+	 PaError err = Pa_Initialize();
+	PaStream *stream;
 	// widgets create here
+	static string pitches_s;
     Gtk::Window window;
     Gtk::Box box{Gtk::ORIENTATION_VERTICAL};
     Gtk::Label label;
@@ -21,7 +33,30 @@ public:
     Gtk::Button button1{"Karoake Mode"}, button2{"Warm Up"}, button3{"return"};
 
     int state;
-
+	static int paRecordCallback(const void *inputBuffer, void *outputBuffer, unsigned long framesPerBuffer, const PaStreamCallbackTimeInfo *timeInfo, PaStreamCallbackFlags statusFlags, void *userData) {
+  
+	const float* input_samples = (const float*) inputBuffer;
+	fvec_t* input_fvec = new_fvec(FRAMES_PER_BUFFER);
+	fvec_t* pitch = new_fvec(1);
+    const uint_t hop_size = 256;
+    const uint_t samplerate = 44100;
+	aubio_pitch_t* pitch_detector = new_aubio_pitch("default", FRAMES_PER_BUFFER, FRAMES_PER_BUFFER, samplerate);
+	aubio_pitch_set_unit(pitch_detector, "Hz");
+	aubio_pitch_set_tolerance(pitch_detector, PITCH_THRESHOLD);
+       for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
+        fvec_set_sample(input_fvec, input_samples[i], i);
+    }
+    // Process audio data
+    aubio_pitch_do(pitch_detector,input_fvec,pitch);
+    //printf("Detected pitch: %f Hz\n", pitch->data[0]);
+	int midi = 12 * log2(pitch->data[0]/440) + 69;
+	
+	Junior::pitches_s = std::to_string(midi);
+	
+	del_aubio_pitch(pitch_detector);
+    del_fvec(pitch);
+	return paContinue;
+}
 	
     void hide() {
         auto children = box.get_children();
@@ -30,7 +65,7 @@ public:
 }
 
     void set_setup(){
-		
+		err = Pa_OpenDefaultStream(&stream,2, 2, paFloat32, SAMPLE_RATE, FRAMES_PER_BUFFER, paRecordCallback, NULL);
 		//set up for windows and title
         
 		window.set_default_size(1920, 1000);
@@ -83,41 +118,40 @@ public:
 		//menuButton.hide();
 }
 
-    string read_ff() {
-        fstream fs("file1.txt");
-        string a;
-        getline(fs, a);
-        return a;
-}
+
 
     void live_feed() {
+		
 		Glib::signal_timeout().connect([&]() {
 		if (button3.get_visible()) {
-
 		if (state == 5) {label.show();
-		//system("arecord -f S16_LE -r 44100 -c 1 - | aubiopitch -i - -r 44100 -H 1024 -o file1.txt");
-		string a = read_ff();
-		label.set_text(a);}
+		err = Pa_StartStream(stream);
+		label.set_text(pitches_s);
+		}else label.hide();
+		
+		
+		}
 		else{
-		label.hide();}
+		err = Pa_StopStream(stream);
+		err = Pa_CloseStream(stream);
+		err = Pa_Terminate();
 		} 
 		return true;
-		}, 10);
+		}, 100);
 }
 void clicked_menubutton(){
 	item1.signal_activate().connect([&](){
 	WebKitSettings *settings = webkit_settings_new();
-   g_object_set(settings, "enable-mediasource", TRUE, "enable-html5-video", TRUE, "enable-video", TRUE, "enable-webaudio", TRUE, NULL);
+   //g_object_set(settings, "enable-mediasource", TRUE, "enable-video", TRUE, "enable-webaudio", TRUE, NULL);
     webkit_web_view_set_settings(WEBKIT_WEB_VIEW(one), settings);
-	webkit_web_view_load_uri(one, "https://www.youtube.com/watch?v=MqazV4hbu8E");
+	webkit_web_view_load_uri(one, "https://open.spotify.com/lyrics");
 		three->show();
 });
 	item2.signal_activate().connect([&](){
-		WebKitSettings *settings = webkit_settings_new();
-    g_object_set(settings, "enable-mediasource", TRUE, "enable-html5-video", TRUE, "enable-video", TRUE, "enable-webaudio", TRUE, NULL);
+	WebKitSettings *settings = webkit_settings_new();
     webkit_web_view_set_settings(WEBKIT_WEB_VIEW(one), settings);
 	webkit_web_view_load_uri(one, "https://www.youtube.com/watch?v=qQzdAsjWGPg");
-		three->show();
+	three->show();
 });
 }
     void clicked_button3() {
@@ -132,7 +166,10 @@ void clicked_menubutton(){
 		label.hide();
 		menuButton.hide();
 		three->hide();
-		window.set_default_size(500, 500);
+		
+		err = Pa_StopStream(stream);
+		err = Pa_CloseStream(stream);
+		err = Pa_Terminate();
 		});
 }
 
@@ -140,6 +177,7 @@ void clicked_menubutton(){
 void set_state(int x){(*this).state = x;}
 
 };
+string Junior::pitches_s;
 	int main(int x, char ** v){
 	
 	Gtk::Main kit (x,v);
