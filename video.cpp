@@ -1,28 +1,60 @@
 #include <gtkmm.h>
-#include <webkit2/webkit2.h>
+#include <iostream>
+#include <opencv2/opencv.hpp>
 
-int main( int argc
-        , char **argv
-        )
-{
-  Glib::RefPtr<Gtk::Application> app = Gtk::Application::create( argc, argv, "" );
+class VideoWidget : public Gtk::DrawingArea {
+public:
+    VideoWidget(int a) {
+        if(a == 1) cap_.open("song.mp4");
 
-  Gtk::Window window;
-  window.set_default_size( 800, 600 );
+        if (!cap_.isOpened()) {
+            std::cerr << "Failed to open camera" << std::endl;
+            return;
+        }
 
-  WebKitWebView * one =  WEBKIT_WEB_VIEW( webkit_web_view_new() );
-  /*
-   * the next line does some tricks :
-   * GTK_WIDGET( one ) -> convert WebKitWebView to GtkWidget (one->two)
-   * Glib::wrap( GTK_WIDGET( one ) ) -> convert GtkWidget to Gtk::Widget (two->three)
-   */
-  Gtk::Widget * three = Glib::wrap( GTK_WIDGET( one ) );
+        cap_ >> frame_;
+        cv::cvtColor(frame_, frame_, cv::COLOR_BGR2RGB);
 
-  window.add( *three );
-  webkit_web_view_load_uri(one, "http://stackoverflow.com/questions/17039942/example-of-using-webkitgtk-with-gtkmm-3-0");
+        pixbuf_ = Gdk::Pixbuf::create_from_data(
+            frame_.data, Gdk::COLORSPACE_RGB, false, 8, frame_.cols, frame_.rows, frame_.step);
 
-  window.show_all();
+        set_size_request(frame_.cols, frame_.rows);
 
-  app->run( window );  
-  exit( 0 );
+        Glib::signal_timeout().connect([&]() {
+            if (cap_.read(frame_)) {
+
+                cv::cvtColor(frame_, frame_, cv::COLOR_BGR2RGB);
+                guint8* pixels = pixbuf_->get_pixels();
+                memcpy(pixels, frame_.data, pixbuf_->get_byte_length());
+                queue_draw();
+            }
+            return true;
+        }, 16);
+    }
+
+protected:
+    bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override {
+        Gdk::Cairo::set_source_pixbuf(cr, pixbuf_, 0, 0);
+        cr->paint();
+        return true;
+    }
+
+private:
+    cv::VideoCapture cap_;
+    cv::Mat frame_;
+    Glib::RefPtr<Gdk::Pixbuf> pixbuf_;
+   //Gtk::Main& app_ = Gtk::Main::instance();
+};
+
+int main(int argc, char *argv[]) {
+    Gtk::Main app(argc, argv);
+    Gtk::Window window;
+
+    VideoWidget video_widget(1);
+    window.add(video_widget);
+
+    window.show_all();
+    app.run(window);
+
+    return 0;
 }
