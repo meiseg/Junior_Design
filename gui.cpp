@@ -2,6 +2,7 @@
 #include <fstream>
 #include <gtkmm.h>
 #include "video.hpp"
+#include <opencv2/opencv.hpp>
 #include <stdio.h>
 #include "portaudio.h"
 #include <aubio/aubio.h>
@@ -13,14 +14,15 @@
 #define PITCH_THRESHOLD (0.68)
 using namespace std;
 
-class Junior {
+class Junior{
 public:
 	
 	PaError err;
 	PaStream *stream;
 	// widgets create here
-	video video_widget;
+	//videoplayer video_widget("song");
 	static string pitches_s;
+	VideoWidget video_widget;
     Gtk::Window window;
     Gtk::Box box{Gtk::ORIENTATION_VERTICAL};
     Gtk::Label label;
@@ -103,8 +105,8 @@ public:
 		menuButton.set_direction(Gtk::ARROW_DOWN);
 		// adding items to containter
 		box.pack_start(menuButton, Gtk::PACK_SHRINK);
-		box.pack_start(video_widget, Gtk::PACK_SHRINK);
 		
+		//box.pack_end(video_widget, Gtk::PACK_SHRINK);
         box.pack_start(button1, Gtk::PACK_SHRINK);
         box.pack_start(button2, Gtk::PACK_SHRINK);
         box.pack_end(button3, Gtk::PACK_SHRINK);
@@ -145,7 +147,9 @@ public:
 }
 void clicked_menubutton(){
 	item1.signal_activate().connect([&](){
-
+ 	
+	box.pack_start(video_widget, Gtk::PACK_SHRINK);
+	video_widget.show();
 });
 	item2.signal_activate().connect([&](){
 
@@ -162,6 +166,7 @@ void clicked_menubutton(){
 		button3.hide();
 		label.hide();
 		menuButton.hide();
+		video_widget.hide();
 	
 		
 		err = Pa_StopStream(stream);
