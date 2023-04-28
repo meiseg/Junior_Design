@@ -2,55 +2,51 @@
 #define VIDEO_HPP
 
 #include <gtkmm.h>
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
+#include <iostream>
+#include <opencv2/opencv.hpp>
 
-class video : public Gtk::Widget {
+class VideoWidget : public Gtk::DrawingArea {
 public:
-    video()
-        : Gtk::Widget()
-    {
-        GstElement *pipeline;
-        GstBus *bus;
-        GstMessage *msg;
-        GError *error = nullptr;
-        GstStateChangeReturn ret;
-
-        /* Initialize GStreamer */
-        gst_init(NULL, NULL);
-
-        /* Create the pipeline */
-        pipeline = gst_parse_launch("playbin uri=file:///home/mrescoba/Junior_Design/song.mp4", &error);
-        if (error != nullptr) {
-            g_print("Failed to create pipeline: %s\n", error->message);
-            g_clear_error(&error);
+    VideoWidget() {
+		cap_.open("song.mp4");
+		
+        if (!cap_.isOpened()) {
+            std::cerr << "Failed to open camera" << std::endl;
             return;
         }
 
-        /* Start playing */
-        ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
-        if (ret == GST_STATE_CHANGE_FAILURE) {
-            g_print("Failed to start playing\n");
-            return;
-        }
+        cap_ >> frame_;
+        cv::cvtColor(frame_, frame_, cv::COLOR_BGR2RGB);
 
-        /* Wait until error or EOS */
-        bus = gst_element_get_bus(pipeline);
-        msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+        pixbuf_ = Gdk::Pixbuf::create_from_data(
+            frame_.data, Gdk::COLORSPACE_RGB, false, 8, frame_.cols, frame_.rows, frame_.step);
 
-        /* Free resources */
-        if (msg != nullptr)
-            gst_message_unref(msg);
-        gst_object_unref(bus);
-        gst_element_set_state(pipeline, GST_STATE_NULL);
-        gst_object_unref(pipeline);
+        set_size_request(frame_.cols, frame_.rows);
+
+        Glib::signal_timeout().connect([&]() {
+            if (cap_.read(frame_)) {
+
+                cv::cvtColor(frame_, frame_, cv::COLOR_BGR2RGB);
+                guint8* pixels = pixbuf_->get_pixels();
+                memcpy(pixels, frame_.data, pixbuf_->get_byte_length());
+                queue_draw();
+            }
+            return true;
+        }, 16);
     }
 
-    virtual ~video() {};
-
-    operator video*() {
-        return this;
+protected:
+    bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override {
+        Gdk::Cairo::set_source_pixbuf(cr, pixbuf_, 0, 0);
+        cr->paint();
+        return true;
     }
+
+private:
+    cv::VideoCapture cap_;
+    cv::Mat frame_;
+    Glib::RefPtr<Gdk::Pixbuf> pixbuf_;
+   //Gtk::Main& app_ = Gtk::Main::instance();
 };
 
 #endif
