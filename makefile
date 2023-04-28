@@ -3,7 +3,7 @@ all: myprogram
 
 # Define the myprogram target
 myprogram: $(file)
-	g++ $(file) -o main `pkg-config gtkmm-3.0 webkit2gtk-4.0 aubio gstreamer-1.0 --cflags --libs` -lportaudio -I/home/mrescoba/Junior_Design/
+	g++ $(file) -o main `pkg-config gtkmm-3.0 webkit2gtk-4.0 aubio opencv4 --cflags --libs` -lportaudio -I/home/mrescoba/Junior_Design/
 	./main &
 debug:
 	gdb a.out
